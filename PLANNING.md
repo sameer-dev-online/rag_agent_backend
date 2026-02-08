@@ -46,6 +46,7 @@ The RAG Backend is built with a modular, layered architecture:
 **Components**:
 - `routes.py`: API router registration
 - `upload.py`: Document upload endpoint
+- `chat.py`: RAG query/chat endpoint
 - `dependencies.py`: Dependency injection
 - `middleware.py`: Error handling and logging
 
@@ -61,6 +62,7 @@ The RAG Backend is built with a modular, layered architecture:
 
 **Components**:
 - `upload_service.py`: Upload workflow orchestration
+- `query_service.py`: Query workflow orchestration
 - `file_service.py`: File operations (save, cleanup, hash)
 - `validation_service.py`: File validation logic
 
@@ -68,9 +70,12 @@ The RAG Backend is built with a modular, layered architecture:
 - Single Responsibility Principle
 - Services compose lower-level components
 - No business logic in endpoints
-- Always cleanup temp files in finally block
+- Always cleanup temp files in finally block (upload)
+- Always return valid responses (query)
 
-### 3. PydanticAI Agent (`app/agents/ingestion/`)
+### 3. PydanticAI Agents
+
+#### Ingestion Agent (`app/agents/ingestion/`)
 
 **Purpose**: Intelligent orchestration of document processing
 
@@ -85,21 +90,53 @@ The RAG Backend is built with a modular, layered architecture:
 - Tool-based architecture for extensibility
 - Easy to add new processing capabilities
 
-### 4. LangGraph Workflow (`app/rag/graphs/`, `app/rag/pipelines/`)
+#### Query Agent (`app/agents/query/`)
+
+**Purpose**: Orchestration of RAG query/retrieval workflow
+
+**Components**:
+- `agent.py`: Query agent with PydanticAI
+- `tools.py`: retrieve_and_answer_tool
+- `prompts.py`: System prompts for grounded RAG
+
+**Design Decisions**:
+- Simplified direct tool invocation (no complex reasoning needed)
+- Ensures grounded, factual responses
+- Handles missing information gracefully
+
+### 4. LangGraph Workflows (`app/rag/graphs/`, `app/rag/pipelines/`)
+
+#### Ingestion Workflow
 
 **Purpose**: State-managed document processing workflow
 
 **Components**:
-- `state.py`: TypedDict state definition
-- `nodes.py`: Workflow node functions
+- `state.py`: IngestionState TypedDict
+- `nodes.py`: Workflow node functions (load, split, embed, store)
 - `ingestion_graph.py`: Graph builder
-- `pipelines/ingestion.py`: Pipeline wrapper
+- `pipelines/ingestion.py`: IngestionPipeline wrapper
 
 **Design Decisions**:
 - Explicit state management
 - Each node is a pure function with dependencies injected
 - Linear workflow: load → split → embed → store
 - Easy to add conditional branching or parallel processing
+
+#### Query Workflow
+
+**Purpose**: State-managed query/retrieval workflow
+
+**Components**:
+- `query_state.py`: QueryState TypedDict
+- `query_nodes.py`: Workflow nodes (embed, retrieve, format, generate)
+- `query_graph.py`: Graph builder
+- `pipelines/query.py`: QueryPipeline wrapper
+
+**Design Decisions**:
+- Linear workflow: embed → retrieve → format → generate
+- Dependency injection for embedder, vector store, LLM client
+- Comprehensive error handling at each node
+- Timing tracked for observability
 
 ### 5. RAG Components (`app/rag/`)
 
@@ -342,21 +379,33 @@ class PineconeVectorStore(BaseVectorStore):
 
 ### Adding a New Endpoint
 
+Example pattern (used for chat endpoint):
+
 1. Create router in `app/api/`:
 ```python
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 router = APIRouter()
 
-@router.get("/query")
-async def query_documents(...):
-    pass
+@router.post("/chat")
+async def chat(
+    request: ChatRequest,
+    service: Service = Depends(get_service),
+):
+    return await service.process(request)
 ```
 
 2. Include in `app/api/routes.py`:
 ```python
-from .query import router as query_router
-api_router.include_router(query_router, tags=["query"])
+from .chat import router as chat_router
+api_router.include_router(chat_router, tags=["chat"])
+```
+
+3. Add dependency in `dependencies.py`:
+```python
+@lru_cache()
+def get_service() -> Service:
+    return Service(get_settings())
 ```
 
 ## Configuration Management
@@ -471,14 +520,113 @@ All other settings have sensible defaults. Override as needed.
 - **mypy**: Type checking
 - **flake8**: Linting
 
+## Query/Chat System (Phase 2 - Completed)
+
+### Overview
+
+The RAG query/chat system enables users to query the document knowledge base with grounded answer generation. The architecture mirrors the ingestion system for consistency.
+
+### Architecture
+
+```
+Client Query
+    ↓
+FastAPI Chat Endpoint (/api/v1/chat)
+    ↓
+QueryService (format response)
+    ↓
+PydanticAI Query Agent
+    ↓
+LangGraph Query Pipeline:
+    - Embed Query (generate embedding)
+    - Retrieve Chunks (similarity search)
+    - Format Context (with source attribution)
+    - Generate Answer (LLM with grounded prompt)
+    ↓
+Return Answer + Sources + Chunks to Client
+```
+
+### Query Workflow Nodes
+
+1. **embed_query_node**: Generate query embedding using embedder
+2. **retrieve_chunks_node**: Retrieve top-k chunks from vector store
+3. **format_context_node**: Format chunks with source attribution, truncate to max length
+4. **generate_answer_node**: Generate answer using OpenAI LLM with grounded system prompt
+
+### Key Design Decisions
+
+- **Temperature = 0.0**: Deterministic, grounded responses
+- **Linear Workflow**: No branching (embed → retrieve → format → generate)
+- **Source Attribution**: Context includes document names for transparency
+- **Graceful Handling**: Returns "I don't have information..." when context is empty
+- **Always Valid Response**: Never raises at API level, errors included in response
+
+### Query Agent Components
+
+**Location:** `app/agents/query/`
+
+- `prompts.py`: System prompt for RAG query assistant
+- `tools.py`: retrieve_and_answer_tool (processes query through pipeline)
+- `agent.py`: QueryAgent class (orchestrates with PydanticAI)
+
+### Query Pipeline
+
+**Location:** `app/rag/pipelines/query.py`
+
+`QueryPipeline` wraps the LangGraph query workflow and provides:
+- State initialization with defaults
+- Graph execution
+- Error handling
+- Timing calculation
+
+### Query Service
+
+**Location:** `app/services/query_service.py`
+
+`QueryService` orchestrates query processing and formats API responses:
+- Calls QueryAgent
+- Extracts unique sources from chunks
+- Converts chunks to API schema (RetrievedChunk)
+- Builds ChatResponse with all metadata
+
+### API Schemas
+
+**Location:** `app/models/schemas.py`
+
+- `ChatRequest`: Query with optional filters, top_k, session_id
+- `ChatResponse`: Answer, sources, chunks, timing, error
+- `RetrievedChunk`: Chunk details with metadata
+
+### Configuration
+
+**Location:** `app/core/config.py`, `app/core/constants.py`
+
+- `query_llm_model`: LLM for answer generation (default: gpt-4o-mini)
+- `query_top_k`: Default chunks to retrieve (default: 5)
+- `query_temperature`: Temperature for generation (default: 0.0)
+- `query_max_context_length`: Max context chars (default: 4000)
+
+### Testing
+
+Comprehensive test suite covering:
+- Query agent tools (success, error, filters)
+- Query agent (process_query with parameters)
+- Query nodes (embed, retrieve, format, generate)
+- Query pipeline (success, filters, errors)
+- Query service (multiple sources, no chunks, errors)
+- Chat API endpoint (validation, responses)
+- E2E integration (upload + chat)
+
+Target: >85% test coverage
+
 ## Future Enhancements
 
-### Phase 2: Query/Retrieval
+### Phase 3: Advanced Features
 
-- Query endpoint with semantic search
-- PydanticAI query agent
-- Reranking for improved relevance
-- LLM-based answer generation
+- Reranking for improved relevance (cross-encoder)
+- Conversation history and session management (Redis)
+- Streaming responses for better UX
+- Semantic caching for repeated queries
 
 ### Phase 3: Advanced Features
 

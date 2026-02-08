@@ -5,7 +5,8 @@ A production-ready RAG (Retrieval-Augmented Generation) backend system built wit
 ## Features
 
 - **Document Ingestion**: Upload and process PDF, TXT, and DOCX files
-- **Intelligent Processing**: PydanticAI agent orchestrates document workflow
+- **RAG Query/Chat**: Query documents with grounded answer generation
+- **Intelligent Processing**: PydanticAI agents orchestrate workflows
 - **Vector Embeddings**: OpenAI text-embedding-3-small (with local fallback)
 - **Persistent Storage**: ChromaDB (local or cloud-hosted)
 - **Async-First**: Fully async for high performance
@@ -16,8 +17,8 @@ A production-ready RAG (Retrieval-Augmented Generation) backend system built wit
 ### Components
 
 1. **FastAPI Layer** (`app/api/`): HTTP endpoints and middleware
-2. **Agent Layer** (`app/agents/`): PydanticAI ingestion agent
-3. **RAG Pipeline** (`app/rag/`): LangGraph workflow with loaders, splitters, embeddings, and storage
+2. **Agent Layer** (`app/agents/`): PydanticAI agents (ingestion + query)
+3. **RAG Pipeline** (`app/rag/`): LangGraph workflows with loaders, splitters, embeddings, and storage
 4. **Service Layer** (`app/services/`): Business logic orchestration
 5. **Core** (`app/core/`): Configuration, errors, logging, constants
 
@@ -121,6 +122,67 @@ curl -X POST http://localhost:8000/api/v1/upload \
   -H "Content-Type: multipart/form-data"
 ```
 
+### Chat Endpoint
+
+**POST** `/api/v1/chat`
+
+Query documents with RAG (Retrieval-Augmented Generation). Generates grounded answers based only on retrieved document chunks.
+
+**Request:**
+- Content-Type: `application/json`
+- Body:
+```json
+{
+  "query": "What is machine learning?",
+  "top_k": 5,
+  "session_id": "optional-session-id",
+  "filter_metadata": {"source_type": "pdf"}
+}
+```
+
+**Parameters:**
+- `query` (string, required): User question (1-2000 characters)
+- `top_k` (integer, optional): Number of chunks to retrieve (1-20, default: 5)
+- `session_id` (string, optional): Session ID for conversation tracking
+- `filter_metadata` (object, optional): Metadata filters for retrieval
+
+**Response:**
+```json
+{
+  "success": true,
+  "answer": "Machine learning is a subset of artificial intelligence...",
+  "sources": ["ml_intro.pdf", "ai_handbook.txt"],
+  "retrieved_chunks": [
+    {
+      "chunk_id": "abc123",
+      "document_id": "def456",
+      "content": "Machine learning is a subset of artificial intelligence...",
+      "chunk_index": 0,
+      "filename": "ml_intro.pdf",
+      "source_type": "pdf",
+      "similarity_score": null
+    }
+  ],
+  "query_time_ms": 250.5,
+  "session_id": "optional-session-id",
+  "error": null
+}
+```
+
+**cURL Example:**
+```bash
+curl -X POST http://localhost:8000/api/v1/chat \
+  -H "Content-Type: application/json" \
+  -d '{"query": "What is machine learning?", "top_k": 5}'
+```
+
+**Key Features:**
+- Grounded answers based ONLY on retrieved context
+- Source attribution (cites document names)
+- Handles missing information gracefully
+- Low temperature (0.0) for factual responses
+- Returns retrieved chunks for transparency
+
 ### Health Check
 
 **GET** `/api/v1/health`
@@ -152,6 +214,10 @@ See `.env.example` for all configuration options.
 - `CHUNK_OVERLAP`: Chunk overlap in characters (default: 200)
 - `EMBEDDING_PROVIDER`: "openai" or "local" (default: "openai")
 - `VECTOR_STORE`: "chroma_local", "chroma_cloud", or "memory" (default: "chroma_local")
+- `QUERY_LLM_MODEL`: LLM for answer generation (default: "gpt-4o-mini")
+- `QUERY_TOP_K`: Default number of chunks to retrieve (default: 5)
+- `QUERY_TEMPERATURE`: LLM temperature for grounded responses (default: 0.0)
+- `QUERY_MAX_CONTEXT_LENGTH`: Maximum context length in characters (default: 4000)
 
 ### Vector Storage Options
 

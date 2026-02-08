@@ -16,10 +16,14 @@ from .constants import (
     DEFAULT_CHROMA_CLOUD_PORT,
     DEFAULT_CHROMA_COLLECTION_NAME,
     DEFAULT_LOCAL_EMBEDDING_MODEL,
+    DEFAULT_MAX_CONTEXT_LENGTH,
     DEFAULT_MAX_FILE_SIZE_MB,
     DEFAULT_MAX_FILES_PER_REQUEST,
     DEFAULT_OPENAI_EMBEDDING_DIMENSIONS,
     DEFAULT_OPENAI_EMBEDDING_MODEL,
+    DEFAULT_QUERY_LLM_MODEL,
+    DEFAULT_QUERY_TEMPERATURE,
+    DEFAULT_QUERY_TOP_K,
     EmbeddingProvider,
     VectorStoreType,
 )
@@ -73,6 +77,12 @@ class Settings(BaseSettings):
     chroma_cloud_port: int = DEFAULT_CHROMA_CLOUD_PORT
     chroma_cloud_tenant: Optional[str] = Field(default=None, validation_alias="CHROMA_CLOUD_TENANT")
     chroma_cloud_database: Optional[str] = Field(default=None, validation_alias="CHROMA_CLOUD_DATABASE")
+
+    # Query/Chat settings
+    query_llm_model: str = DEFAULT_QUERY_LLM_MODEL
+    query_top_k: int = DEFAULT_QUERY_TOP_K
+    query_max_context_length: int = DEFAULT_MAX_CONTEXT_LENGTH
+    query_temperature: float = DEFAULT_QUERY_TEMPERATURE
 
     @field_validator("chunk_overlap")
     @classmethod

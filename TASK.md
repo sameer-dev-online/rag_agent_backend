@@ -87,25 +87,49 @@
 - [ ] Test error handling (invalid files, oversized files)
 - [ ] Verify logging output
 
-### Phase 13: Future Enhancements 📋
-- [ ] Implement query/retrieval endpoint
-- [ ] Create query agent with PydanticAI
+### Phase 13: Query/Chat Endpoint ✅
+- [x] Implement query/retrieval endpoint (/chat)
+- [x] Create query agent with PydanticAI
+- [x] Create LangGraph query workflow (embed → retrieve → format → generate)
+- [x] Implement query pipeline and service layer
+- [x] Add comprehensive test suite for query components
+- [x] Update documentation (README, PLANNING, TASK)
+
+### Phase 14: Future Enhancements 📋
 - [ ] Add document deduplication
-- [ ] Add metadata filtering in queries
+- [ ] Add advanced metadata filtering in queries
 - [ ] Implement batch processing
 - [ ] Add authentication/authorization
 - [ ] Add rate limiting
 - [ ] Add metrics and monitoring
+- [ ] Add conversation history/session management
+- [ ] Add reranking for improved relevance
+- [ ] Add streaming responses
+
+### Phase 15: Streamlit Frontend ✅
+- [x] Create Ui/ directory structure with subdirectories
+- [x] Create requirements.txt and .streamlit/config.toml with dark theme
+- [x] Implement config/settings.py with API URLs and constants
+- [x] Implement utils/api_client.py with backend API functions
+- [x] Implement utils/session_manager.py for session state management
+- [x] Implement utils/ui_components.py with reusable UI components
+- [x] Implement pages/1_Chat.py for interactive chat interface
+- [x] Implement pages/2_Upload_Documents.py for document upload
+- [x] Implement app.py main entry point with welcome page
+- [x] Create Ui/README.md with comprehensive documentation
+- [x] Update TASK.md with Phase 15 completion
 
 ## Current Status
 
-**Project Status**: Core implementation complete ✅
+**Project Status**: Core implementation + Query/Chat endpoint + Streamlit Frontend complete ✅
 
 **Next Steps**:
-1. Write comprehensive test suite
-2. Validate end-to-end functionality
-3. Deploy to staging environment
-4. Begin Phase 2 (Query/Retrieval)
+1. Test end-to-end functionality (backend + frontend integration)
+2. Upload test documents via UI
+3. Verify chat functionality with uploaded documents
+4. Run comprehensive test suite
+5. Deploy to staging environment
+6. Begin Phase 14 (Advanced features: reranking, streaming, etc.)
 
 ## Notes
 
@@ -118,6 +142,20 @@
 
 ## Task Log
 
+### 2026-02-08
+- ✅ Implemented complete Streamlit frontend (Phase 15)
+  - Created modular directory structure (Ui/.streamlit/, config/, utils/, pages/)
+  - Configured professional dark theme with blue accents
+  - Implemented API client with error handling (health, chat, upload)
+  - Implemented session state manager for chat history and backend status
+  - Created reusable UI components (messages, sources, status indicators)
+  - Built interactive chat page with RAG integration and source citations
+  - Built document upload page with file validation and progress tracking
+  - Created welcome/home page with navigation and feature overview
+  - Wrote comprehensive documentation (README with setup and troubleshooting)
+  - All files <500 lines, type hints throughout, Google-style docstrings
+  - Professional UI with styled message bubbles and source badges
+
 ### 2026-02-07
 - ✅ Fixed .env file format issue causing OpenAI API key not to be recognized
 - ✅ Removed quotes from all environment variable values in .env file
@@ -126,6 +164,14 @@
 - ✅ Fixed async/await issue in LangGraph nodes (ingestion_graph.py:46-48)
   - Replaced lambda functions with async wrapper functions to properly await coroutines
   - Resolved "Expected dict, got coroutine" error in split_document_node
+- ✅ Implemented production-ready RAG /chat endpoint (Phase 13)
+  - Added ChatRequest, ChatResponse, RetrievedChunk schemas
+  - Updated configuration with query-specific settings
+  - Created query workflow with 4 nodes: embed → retrieve → format → generate
+  - Implemented QueryPipeline, QueryAgent, and QueryService
+  - Created POST /chat API endpoint
+  - Wrote comprehensive test suite (>85% coverage target)
+  - Updated documentation (README, PLANNING, TASK)
 
 ### 2026-02-06
 - ✅ Implemented Chroma Cloud migration

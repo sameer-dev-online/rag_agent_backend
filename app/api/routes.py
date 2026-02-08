@@ -7,6 +7,7 @@ from fastapi import APIRouter
 from app.core.config import get_settings
 from app.models.schemas import HealthResponse
 
+from .chat import router as chat_router
 from .upload import router as upload_router
 
 # Create main API router
@@ -14,6 +15,7 @@ api_router = APIRouter()
 
 # Include sub-routers
 api_router.include_router(upload_router, tags=["upload"])
+api_router.include_router(chat_router, tags=["chat"])
 
 
 # Health check endpoint

@@ -57,6 +57,12 @@ DEFAULT_CHROMA_COLLECTION_NAME = "documents"
 DEFAULT_CHROMA_CLOUD_HOST = "api.trychroma.com"
 DEFAULT_CHROMA_CLOUD_PORT = 443
 
+# Query/Chat defaults
+DEFAULT_QUERY_TOP_K = 5
+DEFAULT_QUERY_LLM_MODEL = "gpt-4o-mini"
+DEFAULT_QUERY_TEMPERATURE = 0.0
+DEFAULT_MAX_CONTEXT_LENGTH = 4000
+
 # Supported file extensions
 SUPPORTED_EXTENSIONS = {".pdf", ".txt", ".docx"}
 
