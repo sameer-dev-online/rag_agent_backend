@@ -8,6 +8,7 @@ Each node performs a specific step in the RAG query pipeline:
 4. generate_answer_node: Generate answer using LLM
 """
 
+import os
 import time
 from typing import Any, Dict
 
@@ -18,9 +19,30 @@ from app.core.logging import get_logger
 from app.rag.embeddings.base import BaseEmbedder
 from app.rag.graphs.query_state import QueryState
 from app.rag.storage.base import BaseVectorStore
+from langchain_openai import ChatOpenAI
+from langchain.agents import create_agent
+from langgraph.checkpoint.memory import InMemorySaver  
+memory = InMemorySaver()
 
+llm = ChatOpenAI(
+    api_key=os.environ.get("OPENAI_API_KEY"),
+    model="gpt-4o-mini",
+    temperature=0
+)
+system_prompt = """
+You are a helpful assistant.
+
+Rules:
+- Answer based on provided context if available
+- If no context, answer from your knowledge
+- Be concise
+"""
+agent = create_agent(
+    model=llm,
+    system_prompt=system_prompt,
+    checkpointer=memory,
+)
 logger = get_logger(__name__)
-
 
 async def embed_query_node(state: QueryState, embedder: BaseEmbedder) -> Dict[str, Any]:
     """
@@ -172,17 +194,19 @@ async def generate_answer_node(
         context = state.get("context", "")
         query = state["query"]
 
-        logger.info(f"Context are:{context}, Query is:{query}")
+        # logger.info(f"Context are:{context}, Query is:{query}")
 
-        logger.info(f"Generating answer using model: {model}")
+        # logger.info(f"Generating answer using model: {model}")
+
+        # Lazy import to avoid circular dependency
+        # Reason: QueryAgent depends on modules that eventually import query_nodes
+        from pydantic_ai import Agent
 
         # Build system prompt for grounded RAG
-        system_prompt = """You are a helpful assistant that answers questions based ONLY on the provided context.
+        system_prompt = """You are a helpful assistant that answers questions  on the provided context if relevant context not found give answer in your knowledgebase.
 
 RULES:
-1. Only use information from provided context documents
-2. Do not add information from general knowledge
-3. Be concise and precise in your answers"""
+1. Be concise and precise in your answers"""
 
         # Build user prompt
         if context:
@@ -195,21 +219,29 @@ Question: {query}
         else:
             user_prompt = f"""Question: {query}
 
-Note: No relevant documents were found. Please inform the user that you don't have information to answer this question."""
+"""
 
-        # Call OpenAI API
-        response = await llm_client.chat.completions.create(
-            model=model,
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_prompt},
-            ],
-            temperature=temperature,
+      
+        messages = []
+        if context:
+                  messages.append({
+                   "role": "system",
+                    "content": f"Context from documents:\n{context}"
+                  })
+                 
+  
+        messages.append({
+                  "role": "user",
+                  "content": query
+                  })       
+        result = agent.invoke(
+           {"messages": [{"role": "user", "content": user_prompt}]},
+           {"configurable": {"thread_id": "1"}},  
         )
-
-        answer = response.choices[0].message.content or "No answer generated."
-
-        logger.info(f"Answer generated: {len(answer)} characters")
+        ai_message = result["messages"][-1].content
+        answer = ai_message or "No answer generated."
+        # print(f"messages_history: {history}")
+        # logger.info(f"Answer generated: {len(answer)} characters")
 
         return {
             "answer": answer,

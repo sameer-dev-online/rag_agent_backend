@@ -30,9 +30,11 @@ class QueryAgent:
             settings (Settings): Application settings.
         """
         self.settings = settings
-        self.agent = Agent(
-            model=f"openai:{settings.query_llm_model}",
-            system_prompt=QUERY_AGENT_SYSTEM_PROMPT,
+       
+    def get_agent(self, system_prompt: str) -> Agent:
+        return Agent(
+            model=f"openai:{self.settings.query_llm_model}",
+            system_prompt=system_prompt
         )
 
     async def process_query(

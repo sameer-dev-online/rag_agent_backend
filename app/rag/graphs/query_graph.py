@@ -34,6 +34,7 @@ def create_query_graph(settings: Settings) -> StateGraph:
     embedder = EmbedderFactory.create_embedder(settings)
     vector_store = VectorStoreFactory.create_vector_store(settings)
     llm_client = AsyncOpenAI(api_key=os.environ.get("OPENAI_API_KEY"))
+    
 
     # Create state graph
     workflow = StateGraph(QueryState)
