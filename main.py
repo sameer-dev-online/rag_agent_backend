@@ -72,12 +72,12 @@ async def root():
     }
 
 
-if __name__ == "__main__":
-    import uvicorn
+# if __name__ == "__main__":
+#     import uvicorn
 
-    uvicorn.run(
-        "main:app",
-        host=int(os.environ.get("HOST", 8000)),
-        port=int(os.environ.get("PORT", 8000)),
-        reload=settings.debug,
-    )
+#     uvicorn.run(
+#         "main:app",
+#         host=int(os.environ.get("HOST", 8000)),
+#         port=int(os.environ.get("PORT", 8000)),
+#         reload=settings.debug,
+#     )
